@@ -177,11 +177,31 @@ arch_paper <- arch_paper |>
   mutate(low  = qbeta(.005, alpha1, beta1),
          high = qbeta(.995, alpha1, beta1))
 
+# Now we also want to conrol the False Discovery Rate. Otherwise, with 2505 tests,
+# we might easily fool ourselves.
+# We can use the Benjamini-Hochberg adjustment to control the Posterior Error Probability.
+# We set our alpha level to 0.01
+
+# First, we construct the hypothesis test that a win% is larger than 50%
+arch_paper <- arch_paper |> 
+  mutate(PEP = pbeta(.5, alpha1, beta1))
+
+# Then we use the Benjamini-Hochberg procedure
+BH <- function(p, alpha = 0.05){
+  u <- sort(p)
+  uThresh <- alpha * (1:length(p))/length(p)
+  k <- max(c(which((u<=uThresh)), 0), na.rm = TRUE)
+  return(BHSig = c(rep(TRUE, k), rep(FALSE, length(p)-k))[order(order(p))]
+  )
+}
+
+# We select only archetypes that pass the test.
+
 hall_of_fame_MH2 <- arch_paper |> 
   filter(meta!="PostModernHorizons3") |> 
   filter(meta!="PostAssassinsCreed") |> 
-  filter(low > .5)
-hall_of_fame_MH2
+  mutate(BHTest = BH(PEP, 0.01)) |> 
+  filter(BHTest == TRUE)
 
 
 allbest_MH2 <- hall_of_fame_MH2 |> 
@@ -199,7 +219,8 @@ ggsave(filename = 'allbest_MH2.png', plot = allbest_MH2, width = 8, height = 15,
 
 hall_of_fame_MH3 <- arch_paper |> 
   filter(meta=="PostModernHorizons3" | meta=="PostAssassinsCreed") |> 
-  filter(low > .5)
+  mutate(BHTest = BH(PEP, 0.01)) |> 
+  filter(BHTest == TRUE)
 hall_of_fame_MH3
 
 allbest_MH3 <- hall_of_fame_MH3 |> 
